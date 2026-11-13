@@ -1,6 +1,5 @@
 {
   "name": "GC Campus Mystery Hunt",
-  "description": "Amharic-first mobile campus treasure hunt with real-time teams, 4 clue stages, QR checkpoints, and organizer control center.",
-  "requestFramePermissions": ["camera"],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "description": "Campus treasure hunt for a graduating class: students join with just their name, organizers draw random teams, and each team works through four clues verified by QR code at real campus locations.",
+  "requestFramePermissions": ["camera"]
 }
