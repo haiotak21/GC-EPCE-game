@@ -304,7 +304,7 @@ const TeamsTab: React.FC = () => {
                       ? `${unassigned.length} student(s) registered later and still need a team.`
                       : 'Everyone has a team.'
                   }`
-                : `Randomly splits the ${unassigned.length} registered student(s) into teams of 3, using 2s where needed. Nobody is told until you press Publish.`}
+                : `Randomly splits the ${unassigned.length} registered student(s) into teams of 2. If the number is odd, one team gets 3 so nobody is left alone. Nobody is told until you press Publish.`}
             </p>
           </div>
           <div className="text-right shrink-0">

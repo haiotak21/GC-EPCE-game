@@ -73,14 +73,31 @@ begin
             plan_group_sizes(2) = array[2], plan_group_sizes(2)::text);
   perform t('team-sizing', 'n=4 -> 2+2 (never a single-member group)',
             plan_group_sizes(4) = array[2,2], plan_group_sizes(4)::text);
-  perform t('team-sizing', 'n=6 -> 3+3 (spec example)',
-            plan_group_sizes(6) = array[3,3], plan_group_sizes(6)::text);
-  perform t('team-sizing', 'n=7 -> 3+2+2 (spec example)',
-            plan_group_sizes(7) = array[3,2,2], plan_group_sizes(7)::text);
-  perform t('team-sizing', 'n=8 -> 3+3+2 (spec example)',
-            plan_group_sizes(8) = array[3,3,2], plan_group_sizes(8)::text);
-  perform t('team-sizing', 'n=10 -> 3+3+2+2 (spec example)',
-            plan_group_sizes(10) = array[3,3,2,2], plan_group_sizes(10)::text);
+  -- Organizers changed the rule on 2026-11-14: pairs preferred, with a single
+  -- team of three when the class size is odd. This supersedes the worked
+  -- examples in spec §9.3, which assumed threes.
+  perform t('team-sizing', 'n=5 -> 2+3',
+            plan_group_sizes(5) = array[2,3], plan_group_sizes(5)::text);
+  perform t('team-sizing', 'n=6 -> 2+2+2 (all pairs when even)',
+            plan_group_sizes(6) = array[2,2,2], plan_group_sizes(6)::text);
+  perform t('team-sizing', 'n=7 -> 2+2+3',
+            plan_group_sizes(7) = array[2,2,3], plan_group_sizes(7)::text);
+  perform t('team-sizing', 'n=8 -> 2+2+2+2',
+            plan_group_sizes(8) = array[2,2,2,2], plan_group_sizes(8)::text);
+  perform t('team-sizing', 'n=9 -> 2+2+2+3 (the organizers'' worked example)',
+            plan_group_sizes(9) = array[2,2,2,3], plan_group_sizes(9)::text);
+  perform t('team-sizing', 'n=10 -> all pairs',
+            plan_group_sizes(10) = array[2,2,2,2,2], plan_group_sizes(10)::text);
+  perform t('team-sizing', 'an even class has no team of three, n=2..60',
+            not exists (
+              select 1 from generate_series(2,60,2) n, unnest(plan_group_sizes(n)) sz
+              where sz = 3
+            ));
+  perform t('team-sizing', 'an odd class has exactly one team of three, n=3..59',
+            not exists (
+              select 1 from generate_series(3,59,2) n
+              where (select count(*) from unnest(plan_group_sizes(n)) sz where sz = 3) <> 1
+            ));
   perform t('team-sizing', 'no group ever exceeds 3, n=2..60',
             not exists (
               select 1 from generate_series(2,60) n, unnest(plan_group_sizes(n)) sz where sz > 3
