@@ -313,7 +313,7 @@ export const DEFAULT_CHECKPOINTS: Checkpoint[] = [
 ];
 
 export const DEFAULT_SETTINGS: GameSettings = {
-  title: 'GC Campus Mystery Hunt 2026',
+  title: 'Game for power unity!',
   firstPrizeEtb: 3000,
   secondPrizeEtb: 2000,
   thirdPrizeEtb: 1000,
@@ -330,7 +330,7 @@ export const DEFAULT_NOTIFICATIONS: Notification[] = [
     id: 'notif-1',
     gameId: 'game-2026',
     titleAmharic: 'እንኳን ወደ GC ካምፓስ ሚስጥር ፍለጋ በሰላም መጣችሁ!',
-    titleEnglish: 'Welcome to GC Campus Mystery Hunt!',
+    titleEnglish: 'Welcome to Game for power unity!!',
     bodyAmharic: 'ውድ የ2026 የምረቃ ክፍል ተማሪዎች፣ የዛሬው ውድድር የፍቅር እና የትውስታ መፍጠሪያ ነው። እባክዎ ደንቦችን ያክብሩ።',
     bodyEnglish: 'Dear graduating class of 2026, today is about celebrating our campus journey and making lifelong memories together!',
     type: 'announcement',

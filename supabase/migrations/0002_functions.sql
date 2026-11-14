@@ -1,5 +1,5 @@
 -- =============================================================================
--- GC Campus Mystery Hunt — 0002 identity helpers and transactional RPCs
+-- Game for power unity! — 0002 identity helpers and transactional RPCs
 --
 -- Every rule the browser must not be trusted with lives here (§18: "Never trust
 -- a role or group ID supplied by the browser alone"). The client calls these;

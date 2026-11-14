@@ -1,5 +1,5 @@
 -- =============================================================================
--- GC Campus Mystery Hunt — 0008 per-group clues and per-group checkpoints
+-- Game for power unity! — 0008 per-group clues and per-group checkpoints
 --
 -- Until now there was one set of four clues for the whole game. Organizers
 -- want to write a different route for each team, so that teams cannot simply

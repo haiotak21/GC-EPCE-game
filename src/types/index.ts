@@ -1,5 +1,5 @@
 /**
- * Core domain types for GC Campus Mystery Hunt
+ * Core domain types for Game for power unity!
  * (የGC የካምፓስ ሚስጥር ፍለጋ)
  */
 

@@ -1,5 +1,5 @@
 -- =============================================================================
--- GC Campus Mystery Hunt — 0016 teams of two
+-- Game for power unity! — 0016 teams of two
 --
 -- Students asked for pairs rather than threes. New rule:
 --

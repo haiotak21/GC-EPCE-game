@@ -1,5 +1,5 @@
 -- =============================================================================
--- GC Campus Mystery Hunt — 0014 reset blocked by Supabase's unqualified-delete guard
+-- Game for power unity! — 0014 reset blocked by Supabase's unqualified-delete guard
 --
 -- THE BUG
 --   Reset failed: DELETE requires a WHERE clause (21000)

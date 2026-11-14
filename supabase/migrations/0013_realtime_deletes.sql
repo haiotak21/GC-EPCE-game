@@ -1,5 +1,5 @@
 -- =============================================================================
--- GC Campus Mystery Hunt — 0013 make deletions reach the phones
+-- Game for power unity! — 0013 make deletions reach the phones
 --
 -- THE BUG
 -- After "Start the event over", students stayed on their old screen as though

@@ -1,5 +1,5 @@
 {
-  "name": "GC Campus Mystery Hunt",
+  "name": "Game for power unity!",
   "description": "Campus treasure hunt for a graduating class: students join with just their name, organizers draw random teams, and each team works through four clues verified by QR code at real campus locations.",
   "requestFramePermissions": ["camera"]
 }

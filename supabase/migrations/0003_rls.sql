@@ -1,5 +1,5 @@
 -- =============================================================================
--- GC Campus Mystery Hunt — 0003 Row Level Security (§18)
+-- Game for power unity! — 0003 Row Level Security (§18)
 --
 -- Shape of the policy set:
 --   * Students get SELECT only, always narrowed to their own row, their own

@@ -1,5 +1,5 @@
 -- =============================================================================
--- GC Campus Mystery Hunt — 0007 teams may only be drawn once registration shuts
+-- Game for power unity! — 0007 teams may only be drawn once registration shuts
 --
 -- The dashboard disables the Assign Teams button while registration is open,
 -- but a disabled button is a suggestion, not a rule. This makes it real.

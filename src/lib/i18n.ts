@@ -1,5 +1,5 @@
 /**
- * Amharic-first and English i18n dictionary for GC Campus Mystery Hunt
+ * Amharic-first and English i18n dictionary for Game for power unity!
  * (የGC የካምፓስ ሚስጥር ፍለጋ)
  */
 
@@ -141,7 +141,7 @@ export const translations = {
     admin_audit: 'የድርጊቶች ታሪክ',
   },
   en: {
-    appTitle: 'GC Campus Mystery Hunt',
+    appTitle: 'Game for power unity!',
     appSubtitle: 'Graduating Class Campus Mystery Hunt & Memory Making',
     tagline: '4 Mystery Clues · 3 Winning Teams · 6,000 ETB Total Prize Pool',
 
@@ -167,7 +167,7 @@ export const translations = {
     nav_winners: 'Winners',
 
     // Landing
-    hero_title: 'GC Campus Mystery Hunt',
+    hero_title: 'Game for power unity!',
     hero_desc: 'A joyful mobile-first campus treasure hunt for our graduating class to celebrate shared memories, solve Ethiopian campus riddles, and discover secrets together.',
     register_cta: 'Register Now',
     reg_closed_notice: 'Registration Closed',

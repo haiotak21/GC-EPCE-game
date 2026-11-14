@@ -1,5 +1,5 @@
 -- =============================================================================
--- GC Campus Mystery Hunt — complete backend setup
+-- Game for power unity! — complete backend setup
 -- Paste this whole file into the Supabase SQL Editor and press Run.
 --
 -- For a BRAND-NEW project only. It creates tables and types, so running it a
@@ -9,7 +9,7 @@
 -- =============================================================================
 
 -- =============================================================================
--- GC Campus Mystery Hunt — 0001 core schema
+-- Game for power unity! — 0001 core schema
 -- Requirements ref: §15 game states, §17 tables + constraints
 --
 -- All timestamps are stored in UTC (timestamptz). Display conversion to
@@ -389,7 +389,7 @@ create table rate_limit_events (
 create index rate_limit_events_lookup on rate_limit_events(bucket, subject, created_at desc);
 
 -- =============================================================================
--- GC Campus Mystery Hunt — 0002 identity helpers and transactional RPCs
+-- Game for power unity! — 0002 identity helpers and transactional RPCs
 --
 -- Every rule the browser must not be trusted with lives here (§18: "Never trust
 -- a role or group ID supplied by the browser alone"). The client calls these;
@@ -1328,7 +1328,7 @@ end;
 $$;
 
 -- =============================================================================
--- GC Campus Mystery Hunt — 0003 Row Level Security (§18)
+-- Game for power unity! — 0003 Row Level Security (§18)
 --
 -- Shape of the policy set:
 --   * Students get SELECT only, always narrowed to their own row, their own
@@ -1541,7 +1541,7 @@ to authenticated;
 revoke all on schema public from anon;
 
 -- =============================================================================
--- GC Campus Mystery Hunt — 0004 bootstrap helpers
+-- Game for power unity! — 0004 bootstrap helpers
 --
 -- These set up a real event. Nothing here hardcodes a secret: the checkpoint
 -- QR tokens are generated on demand and returned in plaintext exactly once,
@@ -1592,7 +1592,7 @@ revoke execute on function link_admin_account(text, uuid, text, admin_role) from
 -- -----------------------------------------------------------------------------
 
 create or replace function create_game(
-  p_title text default 'EPCE GC 2019',
+  p_title text default 'Game for power unity!',
   p_help_request_limit integer default 2
 )
 returns jsonb
@@ -1737,7 +1737,7 @@ exception when duplicate_object then
 end $$;
 
 -- =============================================================================
--- GC Campus Mystery Hunt — 0005 fix: make pgcrypto reachable from the RPCs
+-- Game for power unity! — 0005 fix: make pgcrypto reachable from the RPCs
 --
 -- Supabase installs pgcrypto into the `extensions` schema, not `public`.
 -- Migrations 0002 and 0004 pinned `search_path = public, pg_temp`, which left
@@ -1808,7 +1808,7 @@ alter function set_checkpoint_organizer_code(integer, text)
   set search_path = public, extensions, pg_temp;
 
 -- =============================================================================
--- GC Campus Mystery Hunt — 0006 team management after the first publish
+-- Game for power unity! — 0006 team management after the first publish
 --
 -- 0002 could only publish teams once, which left two real situations with no
 -- answer:
@@ -2003,7 +2003,7 @@ grant execute on function assign_unassigned_participants() to authenticated;
 grant execute on function reset_team_assignment() to authenticated;
 
 -- =============================================================================
--- GC Campus Mystery Hunt — 0007 teams may only be drawn once registration shuts
+-- Game for power unity! — 0007 teams may only be drawn once registration shuts
 --
 -- The dashboard disables the Assign Teams button while registration is open,
 -- but a disabled button is a suggestion, not a rule. This makes it real.
@@ -2092,7 +2092,7 @@ $$;
 grant execute on function publish_team_assignment(jsonb) to authenticated;
 
 -- =============================================================================
--- GC Campus Mystery Hunt — 0008 per-group clues and per-group checkpoints
+-- Game for power unity! — 0008 per-group clues and per-group checkpoints
 --
 -- Until now there was one set of four clues for the whole game. Organizers
 -- want to write a different route for each team, so that teams cannot simply
@@ -2467,7 +2467,7 @@ grant execute on function set_hint_published(integer, uuid, boolean) to authenti
 grant execute on function provision_checkpoints_for(uuid, text[], integer[]) to authenticated;
 
 -- =============================================================================
--- GC Campus Mystery Hunt — 0009 author clues by group NUMBER, not group row
+-- Game for power unity! — 0009 author clues by group NUMBER, not group row
 --
 -- 0008 tied a clue to a specific team row, which meant clues could only be
 -- written after the draw. Organizers want the opposite: write all the routes
@@ -2932,7 +2932,7 @@ create policy "clue media read" on storage.objects
   using (bucket_id = 'clue-media');
 
 -- =============================================================================
--- GC Campus Mystery Hunt — 0010 repairs after the group_number change
+-- Game for power unity! — 0010 repairs after the group_number change
 --
 -- Three problems introduced by 0008/0009, all fixed here. Safe to run any
 -- number of times.
@@ -3127,7 +3127,7 @@ begin
 end $$;
 
 -- =============================================================================
--- GC Campus Mystery Hunt — 0011 finishing the game must not brick it
+-- Game for power unity! — 0011 finishing the game must not brick it
 --
 -- THE BUG
 -- Nearly every function found the current game with:
@@ -3306,7 +3306,7 @@ begin
 end $$;
 
 -- =============================================================================
--- GC Campus Mystery Hunt — 0012 reset the event back to the starting line
+-- Game for power unity! — 0012 reset the event back to the starting line
 --
 -- Clears students, teams, progress, messages and results, then reopens
 -- registration. Written for rehearsals: run the whole event, reset, run it
@@ -3398,7 +3398,7 @@ $$;
 grant execute on function reset_game(boolean) to authenticated;
 
 -- =============================================================================
--- GC Campus Mystery Hunt — 0013 make deletions reach the phones
+-- Game for power unity! — 0013 make deletions reach the phones
 --
 -- THE BUG
 -- After "Start the event over", students stayed on their old screen as though
@@ -3464,7 +3464,7 @@ begin
 end $$;
 
 -- =============================================================================
--- GC Campus Mystery Hunt — 0014 reset blocked by Supabase's unqualified-delete guard
+-- Game for power unity! — 0014 reset blocked by Supabase's unqualified-delete guard
 --
 -- THE BUG
 --   Reset failed: DELETE requires a WHERE clause (21000)
@@ -3599,7 +3599,7 @@ begin
 end $$;
 
 -- =============================================================================
--- GC Campus Mystery Hunt — 0015 two fixes to checkpoint verification
+-- Game for power unity! — 0015 two fixes to checkpoint verification
 --
 -- 1. INFORMATION LEAK
 --    Scanning the wrong sign replied:
@@ -3774,7 +3774,7 @@ $$;
 grant execute on function verify_checkpoint(text, text) to authenticated;
 
 -- =============================================================================
--- GC Campus Mystery Hunt — 0016 teams of two
+-- Game for power unity! — 0016 teams of two
 --
 -- Students asked for pairs rather than threes. New rule:
 --
@@ -4004,7 +4004,7 @@ begin
 end $$;
 
 -- =============================================================================
--- GC Campus Mystery Hunt — 0017 the system decides the winners, live
+-- Game for power unity! — 0017 the system decides the winners, live
 --
 -- Until now an organizer picked three teams by hand and pressed Reveal.
 -- Organizers want it automatic and immediate:
@@ -4502,7 +4502,7 @@ $$;
 grant execute on function post_podium_state() to authenticated;
 
 -- =============================================================================
--- GC Campus Mystery Hunt — 0018 the corrections organizers will need on the day
+-- Game for power unity! — 0018 the corrections organizers will need on the day
 --
 -- Everything here exists because something will go wrong in front of 30 people
 -- and nobody will want to open a SQL editor:
@@ -5013,7 +5013,7 @@ grant execute on function admin_correct_winner(integer, uuid, text)     to authe
 grant execute on function create_help_request(text, integer)            to authenticated;
 
 -- =============================================================================
--- GC Campus Mystery Hunt — 0019 shorter checkpoint codes
+-- Game for power unity! — 0019 shorter checkpoint codes
 --
 -- GCMH-53AEE079FE5AEA999F was 23 characters. Typing that on a phone, outdoors,
 -- in a hurry, is miserable and error-prone.

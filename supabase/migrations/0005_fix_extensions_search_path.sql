@@ -1,5 +1,5 @@
 -- =============================================================================
--- GC Campus Mystery Hunt — 0005 fix: make pgcrypto reachable from the RPCs
+-- Game for power unity! — 0005 fix: make pgcrypto reachable from the RPCs
 --
 -- Supabase installs pgcrypto into the `extensions` schema, not `public`.
 -- Migrations 0002 and 0004 pinned `search_path = public, pg_temp`, which left

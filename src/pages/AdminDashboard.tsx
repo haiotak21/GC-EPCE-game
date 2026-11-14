@@ -913,7 +913,7 @@ export const AdminDashboard: React.FC<{ onSignedOut: () => void }> = ({ onSigned
             </div>
             <div className="min-w-0">
               <div className="text-sm font-black text-white truncate">
-                {game?.title ?? 'EPCE GC 2019'}
+                {game?.title ?? 'Game for power unity!'}
               </div>
               <div className="text-[10px] text-slate-500 truncate">
                 {me?.display_name} · {me?.role.replace('_', ' ')}

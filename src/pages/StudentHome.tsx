@@ -521,7 +521,7 @@ export const StudentHome: React.FC = () => {
         <div className="min-w-0">
           <h1 className="text-xl font-black text-white truncate">Welcome, {me.full_name}! 👋</h1>
           <div className="text-[11px] text-slate-500 font-mono mt-0.5 truncate">
-            {game?.title ?? 'EPCE GC 2019'}
+            {game?.title ?? 'Game for power unity!'}
           </div>
         </div>
 

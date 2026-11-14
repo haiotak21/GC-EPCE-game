@@ -1,5 +1,5 @@
 -- =============================================================================
--- GC Campus Mystery Hunt — 0010 repairs after the group_number change
+-- Game for power unity! — 0010 repairs after the group_number change
 --
 -- Three problems introduced by 0008/0009, all fixed here. Safe to run any
 -- number of times.

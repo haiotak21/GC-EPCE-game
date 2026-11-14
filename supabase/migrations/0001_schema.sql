@@ -1,5 +1,5 @@
 -- =============================================================================
--- GC Campus Mystery Hunt — 0001 core schema
+-- Game for power unity! — 0001 core schema
 -- Requirements ref: §15 game states, §17 tables + constraints
 --
 -- All timestamps are stored in UTC (timestamptz). Display conversion to

@@ -1,5 +1,5 @@
 -- =============================================================================
--- GC Campus Mystery Hunt — 0011 finishing the game must not brick it
+-- Game for power unity! — 0011 finishing the game must not brick it
 --
 -- THE BUG
 -- Nearly every function found the current game with:

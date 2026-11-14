@@ -1,4 +1,4 @@
-# GC Campus Mystery Hunt
+# Game for power unity!
 
 A campus treasure hunt for a graduating class. Students join by typing their
 name, organizers draw random teams, and each team works through four clues,

@@ -1,5 +1,5 @@
 -- =============================================================================
--- GC Campus Mystery Hunt — 0017 the system decides the winners, live
+-- Game for power unity! — 0017 the system decides the winners, live
 --
 -- Until now an organizer picked three teams by hand and pressed Reveal.
 -- Organizers want it automatic and immediate:

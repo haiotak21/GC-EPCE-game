@@ -1,5 +1,5 @@
 -- =============================================================================
--- GC Campus Mystery Hunt — 0004 bootstrap helpers
+-- Game for power unity! — 0004 bootstrap helpers
 --
 -- These set up a real event. Nothing here hardcodes a secret: the checkpoint
 -- QR tokens are generated on demand and returned in plaintext exactly once,
@@ -50,7 +50,7 @@ revoke execute on function link_admin_account(text, uuid, text, admin_role) from
 -- -----------------------------------------------------------------------------
 
 create or replace function create_game(
-  p_title text default 'EPCE GC 2019',
+  p_title text default 'Game for power unity!',
   p_help_request_limit integer default 2
 )
 returns jsonb

@@ -1,4 +1,4 @@
-# Backend — GC Campus Mystery Hunt
+# Backend — Game for power unity!
 
 PostgreSQL schema, access rules and server-side game logic for the hunt, written
 against the requirements spec. Nothing here depends on the frontend framework,
@@ -77,7 +77,7 @@ makes someone an organizer, so a student can never escalate to admin.
 ### 5. Create the event and the checkpoint codes
 
 ```sql
-select create_game('GC Campus Mystery Hunt 2026');
+select create_game('Game for power unity!');
 
 select * from provision_checkpoints(
   array['Heritage Library','Engineering Quad','Student Lounge','Grand Stadium']

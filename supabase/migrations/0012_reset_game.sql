@@ -1,5 +1,5 @@
 -- =============================================================================
--- GC Campus Mystery Hunt — 0012 reset the event back to the starting line
+-- Game for power unity! — 0012 reset the event back to the starting line
 --
 -- Clears students, teams, progress, messages and results, then reopens
 -- registration. Written for rehearsals: run the whole event, reset, run it

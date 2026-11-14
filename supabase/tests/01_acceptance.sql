@@ -1,5 +1,5 @@
 -- =============================================================================
--- GC Campus Mystery Hunt — acceptance tests (§21)
+-- Game for power unity! — acceptance tests (§21)
 --
 -- Run against a database that has had 0001–0003 applied:
 --   psql "$DATABASE_URL" -f supabase/tests/01_acceptance.sql

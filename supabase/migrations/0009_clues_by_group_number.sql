@@ -1,5 +1,5 @@
 -- =============================================================================
--- GC Campus Mystery Hunt — 0009 author clues by group NUMBER, not group row
+-- Game for power unity! — 0009 author clues by group NUMBER, not group row
 --
 -- 0008 tied a clue to a specific team row, which meant clues could only be
 -- written after the draw. Organizers want the opposite: write all the routes

@@ -19,7 +19,7 @@ In the project folder:
 ```bash
 git init
 git add .
-git commit -m "GC Campus Mystery Hunt"
+git commit -m "Game for power unity!"
 git branch -M main
 ```
 

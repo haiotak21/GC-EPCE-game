@@ -1,5 +1,5 @@
 -- =============================================================================
--- GC Campus Mystery Hunt — 0006 team management after the first publish
+-- Game for power unity! — 0006 team management after the first publish
 --
 -- 0002 could only publish teams once, which left two real situations with no
 -- answer:

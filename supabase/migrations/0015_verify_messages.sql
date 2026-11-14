@@ -1,5 +1,5 @@
 -- =============================================================================
--- GC Campus Mystery Hunt — 0015 two fixes to checkpoint verification
+-- Game for power unity! — 0015 two fixes to checkpoint verification
 --
 -- 1. INFORMATION LEAK
 --    Scanning the wrong sign replied:

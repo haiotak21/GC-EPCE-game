@@ -1,5 +1,5 @@
 -- =============================================================================
--- GC Campus Mystery Hunt — 0019 shorter checkpoint codes
+-- Game for power unity! — 0019 shorter checkpoint codes
 --
 -- GCMH-53AEE079FE5AEA999F was 23 characters. Typing that on a phone, outdoors,
 -- in a hurry, is miserable and error-prone.

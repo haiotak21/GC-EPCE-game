@@ -1,5 +1,5 @@
 -- =============================================================================
--- GC Campus Mystery Hunt — 0018 the corrections organizers will need on the day
+-- Game for power unity! — 0018 the corrections organizers will need on the day
 --
 -- Everything here exists because something will go wrong in front of 30 people
 -- and nobody will want to open a SQL editor:
