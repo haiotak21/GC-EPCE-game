@@ -22,6 +22,7 @@ import React, {
 import {
   supabase,
   ensureSession,
+  clearSession,
   rpc,
   subscribeToGame,
   STUDENT_TABLES,
@@ -47,6 +48,17 @@ export interface LiveGameState {
   ready: boolean;
   /** Set when the connection itself is broken (bad config, anonymous sign-ins off). */
   fatalError: string | null;
+  /**
+   * True when this browser is signed in with an organizer account.
+   *
+   * An organizer who opens the student page in the same browser is handed the
+   * organizer's identity, because the session already exists — typing a name
+   * only labels it. They then see every team's data, which is what happened in
+   * testing. The page warns instead of quietly registering them.
+   */
+  isOrganizerSession: boolean;
+  /** Signs out of the organizer account and starts a fresh student session. */
+  switchToStudentSession: () => Promise<void>;
 
   game: Game | null;
   me: Participant | null;
@@ -80,6 +92,7 @@ const LiveGameContext = createContext<LiveGameState | undefined>(undefined);
 export const LiveGameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [ready, setReady] = useState(false);
   const [fatalError, setFatalError] = useState<string | null>(null);
+  const [isOrganizerSession, setIsOrganizerSession] = useState(false);
 
   const [game, setGame] = useState<Game | null>(null);
   const [me, setMe] = useState<Participant | null>(null);
@@ -119,10 +132,13 @@ export const LiveGameProvider: React.FC<{ children: ReactNode }> = ({ children }
      * live testing as notifications from other teams appearing three times
      * over.
      */
-    const [participantRes, groupRes] = await Promise.all([
+    const [participantRes, groupRes, adminRes] = await Promise.all([
       supabase.rpc('current_participant_id'),
       supabase.rpc('current_group_id'),
+      supabase.rpc('is_admin'),
     ]);
+
+    setIsOrganizerSession(adminRes.data === true);
 
     const myParticipantId = (participantRes.data as string | null) ?? null;
     const myGroupId = (groupRes.data as string | null) ?? null;
@@ -400,6 +416,18 @@ export const LiveGameProvider: React.FC<{ children: ReactNode }> = ({ children }
     [refresh]
   );
 
+  /**
+   * Leaves the organizer account and comes back as a brand-new student.
+   *
+   * Reloads rather than refetching: a different identity means every piece of
+   * state on the page belongs to someone else.
+   */
+  const switchToStudentSession = useCallback(async () => {
+    await clearSession();
+    await ensureSession();
+    window.location.reload();
+  }, []);
+
   const markAllRead = useCallback(async () => {
     const unread = notifications.filter((n) => !n.read_at);
     if (unread.length === 0) return;
@@ -430,6 +458,8 @@ export const LiveGameProvider: React.FC<{ children: ReactNode }> = ({ children }
       value={{
         ready,
         fatalError,
+        isOrganizerSession,
+        switchToStudentSession,
         game,
         me,
         myGroup,

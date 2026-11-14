@@ -381,10 +381,76 @@ const TeamNameEditor: React.FC<{ current: string | null; onClose: () => void }> 
   );
 };
 
+
+/**
+ * Shown when an organizer opens the student page in the browser they signed
+ * into the dashboard with.
+ *
+ * Registering here would attach their player record to the organizer account,
+ * and the database shows organizers everything — so that student would see
+ * every team's clues and messages. It happened in testing to all three
+ * organizers at once, and nothing on screen hinted at it.
+ */
+const OrganizerSessionNotice: React.FC = () => {
+  const { switchToStudentSession } = useLiveGame();
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <div className="fixed inset-0 bg-[#070b14]/95 backdrop-blur-md z-[60] flex items-center justify-center p-4">
+      <div className="bg-[#0f172a] border border-indigo-500/40 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+        <div className="text-center space-y-2">
+          <div className="w-12 h-12 mx-auto rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">
+            <ShieldCheck className="w-6 h-6 text-indigo-400" />
+          </div>
+          <h2 className="text-lg font-black text-white">You are signed in as an organizer</h2>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            This browser is signed into the organizer dashboard. If you join the hunt here, your
+            player account is tied to the organizer account — and organizers can see every team, so
+            you would get other teams' clues and messages.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await switchToStudentSession();
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 disabled:opacity-60 text-slate-950 font-black text-sm"
+          >
+            {busy ? 'Switching…' : 'Sign out and play as a student'}
+          </button>
+
+          <a
+            href="/admin"
+            className="block w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs text-center"
+          >
+            Go to the organizer dashboard
+          </a>
+        </div>
+
+        <p className="text-[10px] text-slate-500 leading-relaxed text-center">
+          Best of all: keep one browser for the dashboard and a different one (or a private window)
+          for playing.
+        </p>
+
+        <Watermark />
+      </div>
+    </div>
+  );
+};
+
 export const StudentHome: React.FC = () => {
   const {
     ready,
     fatalError,
+    isOrganizerSession,
     game,
     me,
     myGroup,
@@ -427,6 +493,10 @@ export const StudentHome: React.FC = () => {
       </div>
     );
   }
+
+  // An organizer in the wrong browser is warned before anything else: joining
+  // here is what produced the cross-team leak in testing.
+  if (isOrganizerSession) return <OrganizerSessionNotice />;
 
   if (!me) return <RegistrationPopup />;
 
