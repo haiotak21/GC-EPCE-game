@@ -9,7 +9,7 @@
  * across tabs and devices, which a local "seen" list would not.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   X,
   Bell,
@@ -47,48 +47,85 @@ export const NotificationPopup: React.FC = () => {
   const { notifications, markRead, markAllRead } = useLiveGame();
   const [busy, setBusy] = useState(false);
 
+  // Ids we have already asked the server to mark read. A refresh that was
+  // already in flight can briefly hand back the old unread row, and without
+  // this the popup springs back and the countdown starts over.
+  const dismissed = useRef<Set<string>>(new Set());
+  const inFlight = useRef(false);
+
   const pending = notifications
-    .filter((n) => !n.read_at && n.type !== 'team_assignment')
+    .filter((n) => !n.read_at && n.type !== 'team_assignment' && !dismissed.current.has(n.id))
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
 
   const current = pending[0];
+  const currentId = current?.id;
 
   // Announcements about other teams close themselves, so a popup can never
-  // block someone who is mid-scan. The team's own result has no timer.
+  // block someone who is mid-scan. A team's own result has no timer.
   const autoSeconds = Number(
     (current?.payload as { auto_dismiss_seconds?: number } | null)?.auto_dismiss_seconds ?? 0
   );
   const [remaining, setRemaining] = useState(autoSeconds);
 
-  const dismiss = useCallback(async () => {
-    if (!current || busy) return;
-    setBusy(true);
-    try {
-      await markRead(current.id);
-    } finally {
-      setBusy(false);
+  /**
+   * Identity deliberately does NOT depend on `busy`.
+   *
+   * It used to, and the countdown effect listed it as a dependency. Dismissing
+   * flipped `busy`, which gave this a new identity, which tore down and
+   * recreated the interval — which immediately fired again, because the
+   * countdown had already reached zero. That loop called markRead and refresh
+   * without pause, and the page stopped responding to taps. Reported from
+   * live testing as "the screen got stuck".
+   */
+  const dismiss = useCallback(
+    async (id: string) => {
+      if (inFlight.current) return;
+      inFlight.current = true;
+      dismissed.current.add(id);
+      setBusy(true);
+      try {
+        await markRead(id);
+      } catch {
+        // Let them try again rather than hiding it forever.
+        dismissed.current.delete(id);
+      } finally {
+        inFlight.current = false;
+        setBusy(false);
+      }
+    },
+    [markRead]
+  );
+
+  // Latest dismiss, reachable from the interval without being a dependency.
+  const dismissRef = useRef(dismiss);
+  dismissRef.current = dismiss;
+
+  /**
+   * Countdown. Keyed only on which message is showing and how long it lasts,
+   * so nothing this effect does can cause it to restart.
+   */
+  useEffect(() => {
+    if (!currentId || autoSeconds <= 0) {
+      setRemaining(0);
+      return;
     }
-  }, [current, busy, markRead]);
 
-  // Restart the countdown whenever a different message comes to the front.
-  useEffect(() => {
     setRemaining(autoSeconds);
-  }, [current?.id, autoSeconds]);
+    const endsAt = Date.now() + autoSeconds * 1000;
 
-  useEffect(() => {
-    if (!current || autoSeconds <= 0) return;
-    const id = setInterval(() => {
-      setRemaining((r) => {
-        if (r <= 1) {
-          clearInterval(id);
-          void dismiss();
-          return 0;
-        }
-        return r - 1;
-      });
-    }, 1000);
-    return () => clearInterval(id);
-  }, [current?.id, autoSeconds, dismiss, current]);
+    const id = window.setInterval(() => {
+      const left = Math.ceil((endsAt - Date.now()) / 1000);
+      if (left <= 0) {
+        window.clearInterval(id);
+        // Fired outside a state updater: side effects do not belong in one.
+        void dismissRef.current(currentId);
+      } else {
+        setRemaining(left);
+      }
+    }, 250);
+
+    return () => window.clearInterval(id);
+  }, [currentId, autoSeconds]);
 
   if (!current) return null;
 
@@ -125,7 +162,7 @@ export const NotificationPopup: React.FC = () => {
           <div className="space-y-2">
             <button
               type="button"
-              onClick={() => void dismiss()}
+              onClick={() => void dismiss(current.id)}
               disabled={busy}
               className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 disabled:opacity-50 text-slate-950 font-black text-sm"
             >
@@ -139,6 +176,9 @@ export const NotificationPopup: React.FC = () => {
                 disabled={busy}
                 onClick={async () => {
                   setBusy(true);
+                  // Remember them all, so an in-flight refresh cannot bring
+                  // the queue back.
+                  for (const n of pending) dismissed.current.add(n.id);
                   try {
                     await markAllRead();
                   } finally {
