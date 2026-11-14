@@ -135,6 +135,13 @@ export interface Checkpoint {
   requires_organizer_code: boolean;
   active: boolean;
   created_at: string;
+  /**
+   * The code printed on the sign, readable so an organizer can look it up
+   * without rotating it. Null for codes issued before migration 0020, which
+   * were hash-only and cannot be recovered.
+   */
+  code_plain: string | null;
+  code_set_at: string | null;
 }
 
 export interface CheckpointVerification {

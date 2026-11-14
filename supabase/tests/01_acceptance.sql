@@ -721,6 +721,108 @@ select
 from test_results
 order by id;
 
+
+-- =============================================================================
+-- Checkpoint codes must be stable (migration 0020)
+--
+-- The regression: every look at a code minted a new one and overwrote the old,
+-- so a code written on a sign stopped working the moment anyone opened that
+-- clue again. A student typed a correct code and was told it was wrong.
+-- =============================================================================
+
+do $$
+declare
+  a text; b text; c text; r jsonb; rot text;
+begin
+  perform set_config('request.jwt.claim.sub', '22222222-0000-0000-0000-000000000002', false);
+
+  -- Issue once, then look at it twice more the way the organizer screen does.
+  a := issue_checkpoint_code(1, 7, 'Library') ->> 'token';
+  b := issue_checkpoint_code(1, 7, 'Library') ->> 'token';
+  c := issue_checkpoint_code(1, 7) ->> 'token';
+
+  perform t('checkpoint-codes', 'the same clue returns the same code every time',
+            a = b and b = c, format('%s / %s / %s', a, b, c));
+
+  perform t('checkpoint-codes', 'a code written on a sign still verifies later',
+            exists (select 1 from checkpoints
+                    where verification_token_hash = digest(a, 'sha256')), a);
+
+  perform t('checkpoint-codes', 'the second call reports EXISTING, not a new issue',
+            issue_checkpoint_code(1, 7) ->> 'code' = 'EXISTING');
+
+  perform t('checkpoint-codes', 'the code is readable back, so it need not be reissued to be seen',
+            (select code_plain from checkpoints
+             where stage_number = 1 and group_number = 7) = a);
+
+  perform t('checkpoint-codes', 'new codes have the short EPCE shape',
+            a ~ '^EPCE[ABCDEFGHJKLMNPQRTUVWXYZ2346789]{4}$', a);
+
+  -- Different clue, different group: all distinct.
+  perform t('checkpoint-codes', 'every clue and group gets its own code',
+            (select count(distinct tok) from (values
+               (issue_checkpoint_code(1, 8) ->> 'token'),
+               (issue_checkpoint_code(2, 8) ->> 'token'),
+               (issue_checkpoint_code(3, 8) ->> 'token'),
+               (issue_checkpoint_code(1, 9) ->> 'token')
+             ) v(tok)) = 4);
+
+  -- Issuing for another group must not disturb this one.
+  perform issue_checkpoint_code(1, 10);
+  perform t('checkpoint-codes', 'issuing for another group leaves this one alone',
+            issue_checkpoint_code(1, 7) ->> 'token' = a);
+
+  -- The leak button is the ONLY thing that changes a code.
+  r := regenerate_checkpoint_code(1, 7, 'sign photographed');
+  rot := r ->> 'token';
+  perform t('checkpoint-codes', 'replacing a leaked code does change it',
+            (r->>'ok')::boolean and rot <> a, r::text);
+  perform t('checkpoint-codes', 'the leaked code stops working',
+            not exists (select 1 from checkpoints
+                        where verification_token_hash = digest(a, 'sha256')), a);
+  perform t('checkpoint-codes', 'the replacement is stable in turn',
+            issue_checkpoint_code(1, 7) ->> 'token' = rot);
+  perform t('checkpoint-codes', 'the replacement is written to the audit log',
+            exists (select 1 from admin_audit_logs
+                    where action = 'REGENERATE_CHECKPOINT_CODE'
+                      and detail->>'reason' = 'sign photographed'));
+
+  -- Codes issued before 0020 are hash-only; the first call must adopt one
+  -- rather than leave the organizer with nothing to print.
+  update checkpoints set code_plain = null, code_set_at = null
+  where stage_number = 1 and group_number = 7;
+  perform t('checkpoint-codes', 'a pre-0020 hash-only code is replaced once, then fixed',
+            issue_checkpoint_code(1, 7) ->> 'token'
+            = issue_checkpoint_code(1, 7) ->> 'token');
+end $$;
+
+-- A student still cannot read the code column, readable or not.
+select set_config('request.jwt.claim.sub',
+  (select p.auth_user_id::text from participants p
+   join group_members gm on gm.participant_id = p.id limit 1), false) \gset
+
+-- RLS filters rows rather than raising, so the check is that a student sees
+-- NONE of them -- even though the admin screen has plenty.
+set role authenticated;
+insert into test_results(section, name, passed, detail)
+select 'checkpoint-codes', 'a student sees no checkpoint rows at all',
+       count(*) = 0, count(*)::text
+from checkpoints;
+
+insert into test_results(section, name, passed, detail)
+select 'checkpoint-codes', 'a student can read no checkpoint code',
+       count(*) = 0, count(*)::text
+from checkpoints where code_plain is not null;
+reset role;
+
+-- ...while the organizer can, which is the whole point of storing it.
+do $$
+begin
+  perform set_config('request.jwt.claim.sub', '22222222-0000-0000-0000-000000000002', false);
+  perform t('checkpoint-codes', 'an organizer can read codes back without reissuing',
+            (select count(*) from checkpoints where code_plain is not null) > 0);
+end $$;
+
 \echo ''
 select
   count(*) filter (where passed)       as passed,

@@ -398,7 +398,7 @@ export const CheckpointScanner: React.FC<{ onClose: () => void }> = ({ onClose }
                       type="text"
                       value={manualCode}
                       onChange={(e) => setManualCode(e.target.value)}
-                      placeholder="GCMH-…"
+                      placeholder="EPCE…"
                       autoFocus
                       autoCapitalize="characters"
                       className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-700 text-white font-mono text-center tracking-wider focus:outline-none focus:border-amber-400"

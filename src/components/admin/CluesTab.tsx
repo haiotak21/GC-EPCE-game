@@ -7,6 +7,12 @@
  *
  * Each clue carries its own checkpoint code, generated right under it: a QR
  * to download and print, and the same code as text to copy.
+ *
+ * A code is PERMANENT once created. It is stored readably and shown whenever
+ * this clue is open, so printing a sign in the morning and playing in the
+ * evening works. Replacing one is a separate, confirmed action for a leak —
+ * previously every look at a code silently minted a new one and killed the
+ * sign, which is the bug this shape exists to prevent.
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -27,6 +33,8 @@ import {
   X,
   AlertTriangle,
   Loader2,
+  Lock,
+  RefreshCw,
 } from 'lucide-react';
 
 /** 30 students at 2–3 per team never exceeds 15 teams. */
@@ -89,19 +97,37 @@ const ClueEditor: React.FC<{
   draft: Draft;
   published: boolean;
   exists: boolean;
+  /** The code already stored for this clue, if there is one. */
+  storedCode: string | null;
+  storedSetAt: string | null;
   onChange: (field: keyof Draft, value: string) => void;
   onTogglePublish: () => void;
-}> = ({ stage, groupNumber, draft, published, exists, onChange, onTogglePublish }) => {
-  const { issueCode } = useAdmin();
+}> = ({
+  stage,
+  groupNumber,
+  draft,
+  published,
+  exists,
+  storedCode,
+  storedSetAt,
+  onChange,
+  onTogglePublish,
+}) => {
+  const { issueCode, regenerateCode } = useAdmin();
 
   const [issued, setIssued] = useState<{ token: string; label: string } | null>(null);
   const [showQr, setShowQr] = useState(false);
+  const [confirmRotate, setConfirmRotate] = useState(false);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
 
   const caption = `${groupNumber ? `Group ${groupNumber}` : 'All teams'} stage ${stage}`;
+
+  // The code shown is the stored one whenever there is one, so simply opening
+  // this clue never changes what is printed on the sign.
+  const code = issued?.token ?? storedCode;
 
   const generate = async (withQr: boolean) => {
     setBusy(true);
@@ -122,6 +148,24 @@ const ClueEditor: React.FC<{
           ? 'The database is missing issue_checkpoint_code — run migration 0010.'
           : `Could not generate a code: ${describeError(err)}`
       );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const rotate = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const result = await regenerateCode(stage, groupNumber, 'organizer replaced a leaked code');
+      if (result.ok && result.token) {
+        setIssued({ token: result.token, label: result.label ?? caption });
+        setConfirmRotate(false);
+      } else {
+        setError(`Could not replace the code: ${result.code ?? 'unknown reason'}`);
+      }
+    } catch (err) {
+      setError(`Could not replace the code: ${describeError(err)}`);
     } finally {
       setBusy(false);
     }
@@ -259,49 +303,60 @@ const ClueEditor: React.FC<{
         </div>
       )}
 
-      {/* The code for this clue's checkpoint */}
+      {/* The code for this clue's checkpoint.
+
+          This code is PERMANENT once issued. Opening this clue, showing the
+          QR, or coming back tomorrow all show the same code — so a sign
+          printed in the morning still works at kick-off. The only thing that
+          changes it is the replace button, which asks first. */}
       <div className="pt-3 border-t border-slate-800 space-y-2">
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void generate(true)}
-            className="px-3 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-slate-950 text-[11px] font-bold flex items-center gap-1.5"
-          >
-            <QrCode className="w-3.5 h-3.5" />
-            Generate QR code
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void generate(false)}
-            className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 text-[11px] font-bold flex items-center gap-1.5 border border-slate-700"
-          >
-            <KeyRound className="w-3.5 h-3.5 text-amber-400" />
-            Generate code
-          </button>
-        </div>
-
-        {error && <p className="text-[11px] text-rose-400">{error}</p>}
-
-        {issued && (
-          <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/40 space-y-2.5">
-            <div className="flex items-start gap-1.5 text-emerald-300 text-[11px] leading-relaxed">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-              <span>
-                <strong>Save this now</strong> — it is shown once and cannot be looked up again.
-                Generating another replaces it.
+        {!code ? (
+          <>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              No code yet for this clue. Create it once and it stays the same —
+              safe to print now and play hours later.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void generate(true)}
+                className="px-3 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-slate-950 text-[11px] font-bold flex items-center gap-1.5"
+              >
+                <QrCode className="w-3.5 h-3.5" />
+                {busy ? 'Creating…' : 'Create code + QR'}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void generate(false)}
+                className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 text-[11px] font-bold flex items-center gap-1.5 border border-slate-700"
+              >
+                <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+                Create code only
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-700 space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                Checkpoint code
+              </span>
+              <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-bold">
+                <Lock className="w-3 h-3" />
+                Fixed — will not change
               </span>
             </div>
 
             <div className="flex items-center gap-2">
-              <code className="flex-1 px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-amber-300 font-mono text-sm tracking-wider text-center break-all">
-                {issued.token}
+              <code className="flex-1 px-3 py-2.5 rounded-lg bg-slate-950 border border-slate-700 text-amber-300 font-mono text-base tracking-[0.2em] text-center break-all">
+                {code}
               </code>
               <button
                 type="button"
                 onClick={() => {
-                  void navigator.clipboard?.writeText(issued.token);
+                  void navigator.clipboard?.writeText(code);
                   setCopied(true);
                   setTimeout(() => setCopied(false), 2000);
                 }}
@@ -316,19 +371,69 @@ const ClueEditor: React.FC<{
               </button>
             </div>
 
+            {storedSetAt && !issued && (
+              <p className="text-[10px] text-slate-500">
+                Set {new Date(storedSetAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
+              </p>
+            )}
+
             {showQr ? (
-              <QrBlock token={issued.token} caption={caption} />
+              <QrBlock token={code} caption={caption} />
             ) : (
               <button
                 type="button"
                 onClick={() => setShowQr(true)}
-                className="w-full py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold"
+                className="w-full py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold flex items-center justify-center gap-1.5"
               >
-                Show QR for this code
+                <QrCode className="w-3.5 h-3.5 text-amber-400" />
+                Show QR to print
+              </button>
+            )}
+
+            {/* Rotation is deliberate and confirmed: it kills the printed sign. */}
+            {confirmRotate ? (
+              <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/40 space-y-2">
+                <p className="text-[11px] text-rose-200 leading-relaxed flex items-start gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>
+                    Replace <strong className="font-mono">{code}</strong>? Any sign already
+                    printed with it <strong>stops working immediately</strong>. Only do this if
+                    the code leaked.
+                  </span>
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void rotate()}
+                    className="flex-1 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 disabled:opacity-40 text-white text-[11px] font-bold"
+                  >
+                    {busy ? 'Replacing…' : 'Yes, replace it'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setConfirmRotate(false)}
+                    className="flex-1 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold"
+                  >
+                    Keep it
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmRotate(true)}
+                className="w-full py-1.5 text-[10px] font-bold text-slate-500 hover:text-rose-300 flex items-center justify-center gap-1.5"
+              >
+                <RefreshCw className="w-3 h-3" />
+                Code leaked? Replace it
               </button>
             )}
           </div>
         )}
+
+        {error && <p className="text-[11px] text-rose-400">{error}</p>}
       </div>
     </div>
   );
@@ -337,7 +442,7 @@ const ClueEditor: React.FC<{
 // -----------------------------------------------------------------------------
 
 export const CluesTab: React.FC = () => {
-  const { hints, groups, saveHint, setHintPublished } = useAdmin();
+  const { hints, groups, checkpoints, saveHint, setHintPublished } = useAdmin();
 
   // null = the shared set every team sees.
   const [groupNumber, setGroupNumber] = useState<number | null>(null);
@@ -359,6 +464,20 @@ export const CluesTab: React.FC = () => {
     }
     return map;
   }, [hints, groupNumber]);
+
+  // The code already issued for each clue of the group being edited. Showing
+  // it from here is what makes a code stable: the organizer reads it instead
+  // of minting a new one to find out what it is.
+  const codes = useMemo(() => {
+    const map: Record<number, { code: string | null; setAt: string | null }> = {};
+    for (const stage of STAGES) {
+      const cp = checkpoints.find(
+        (c) => c.stage_number === stage && (c.group_number ?? null) === groupNumber
+      );
+      map[stage] = { code: cp?.code_plain ?? null, setAt: cp?.code_set_at ?? null };
+    }
+    return map;
+  }, [checkpoints, groupNumber]);
 
   useEffect(() => {
     const next: Record<number, Draft> = { 1: EMPTY, 2: EMPTY, 3: EMPTY, 4: EMPTY };
@@ -503,6 +622,8 @@ export const CluesTab: React.FC = () => {
           draft={drafts[stage]}
           published={!!stored[stage]?.published_at}
           exists={!!stored[stage]}
+          storedCode={codes[stage]?.code ?? null}
+          storedSetAt={codes[stage]?.setAt ?? null}
           onChange={(field, value) => update(stage, field, value)}
           onTogglePublish={async () => {
             setBusy(true);

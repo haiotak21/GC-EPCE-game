@@ -131,10 +131,20 @@ export interface AdminState {
     published: boolean
   ) => Promise<{ ok: boolean; message: string }>;
   /** §6 issues one checkpoint code. Returns the plaintext token ONCE. */
+  /**
+   * Get-or-create. Called again for the same clue it returns the SAME code,
+   * so a sign printed hours before kick-off keeps working.
+   */
   issueCode: (
     stage: number,
     groupNumber: number | null,
     location?: string
+  ) => Promise<{ ok: boolean; code?: string; token?: string; label?: string }>;
+  /** Deliberately replaces a code — for a leaked or photographed sign. */
+  regenerateCode: (
+    stage: number,
+    groupNumber: number | null,
+    reason?: string
   ) => Promise<{ ok: boolean; code?: string; token?: string; label?: string }>;
   refresh: () => Promise<void>;
 }
@@ -555,6 +565,20 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     [refresh]
   );
 
+  const regenerateCode = useCallback(
+    async (stage: number, groupNumber: number | null, reason?: string) => {
+      const { data, error } = await supabase.rpc('regenerate_checkpoint_code', {
+        p_stage: stage,
+        p_group_number: groupNumber,
+        p_reason: reason ?? null,
+      });
+      if (error) throw new Error(error.message || error.code || 'RPC failed');
+      await refresh();
+      return (data ?? { ok: false }) as { ok: boolean; code?: string; token?: string; label?: string };
+    },
+    [refresh]
+  );
+
   // --- Corrections -----------------------------------------------------------
 
   /** Shared shape: call the function, refresh, turn the result code into a sentence. */
@@ -731,6 +755,7 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         saveHint,
         setHintPublished,
         issueCode,
+        regenerateCode,
         refresh,
       }}
     >
