@@ -106,36 +106,58 @@ export const LiveGameProvider: React.FC<{ children: ReactNode }> = ({ children }
     const authUserId = session?.user?.id;
     if (!authUserId) return;
 
-    // One round trip each, all in parallel. RLS does the filtering.
-    const [
-      gameRes,
-      meRes,
-      membershipRes,
-      hintsRes,
-      verificationsRes,
-      recipientsRes,
-      helpRes,
-      winnersRes,
-    ] = await Promise.all([
-      supabase.from('games').select('*').limit(1).maybeSingle(),
-      supabase.from('participants').select('*').eq('auth_user_id', authUserId).maybeSingle(),
-      // Ask the database directly which team this student is in.
-      //
-      // Do NOT select from group_members and trust the row-level rules to
-      // return only "mine": that rule also exposes the WINNING team's members,
-      // so that everyone can see who won. An unfiltered limit(1) could then
-      // return the winner's row instead, and every student would be shown the
-      // winning team as their own. That is exactly what happened in testing.
+    /**
+     * Who am I, and which team am I in?
+     *
+     * These two come first and everything below is filtered by them. Nothing
+     * here relies on the access rules to mean "mine", because several of them
+     * deliberately mean more than that: notification_recipients, help_requests
+     * and checkpoint_verifications all end in `or is_admin()`, and
+     * group_members also exposes the winning team. An organizer who opens the
+     * student page is an admin, so trusting those rules showed them every
+     * student's notifications, duplicated once per recipient — reported from
+     * live testing as notifications from other teams appearing three times
+     * over.
+     */
+    const [participantRes, groupRes] = await Promise.all([
+      supabase.rpc('current_participant_id'),
       supabase.rpc('current_group_id'),
-      supabase.from('hints').select('*').order('hint_number'),
-      supabase.from('checkpoint_verifications').select('*').order('verified_at'),
-      supabase
-        .from('notification_recipients')
-        .select('read_at, notification:notifications(*)')
-        .order('read_at', { nullsFirst: true }),
-      supabase.from('help_requests').select('*').order('created_at', { ascending: false }),
-      supabase.from('winners').select('*, group:groups(group_number, group_name)').order('position'),
     ]);
+
+    const myParticipantId = (participantRes.data as string | null) ?? null;
+    const myGroupId = (groupRes.data as string | null) ?? null;
+
+    const [gameRes, meRes, hintsRes, verificationsRes, recipientsRes, helpRes, winnersRes] =
+      await Promise.all([
+        supabase.from('games').select('*').limit(1).maybeSingle(),
+        supabase.from('participants').select('*').eq('auth_user_id', authUserId).maybeSingle(),
+        supabase.from('hints').select('*').order('hint_number'),
+
+        myGroupId
+          ? supabase
+              .from('checkpoint_verifications')
+              .select('*')
+              .eq('group_id', myGroupId)
+              .order('verified_at')
+          : Promise.resolve({ data: [] as CheckpointVerification[] }),
+
+        myParticipantId
+          ? supabase
+              .from('notification_recipients')
+              .select('read_at, participant_id, notification:notifications(*)')
+              .eq('participant_id', myParticipantId)
+          : Promise.resolve({ data: [] }),
+
+        myGroupId
+          ? supabase
+              .from('help_requests')
+              .select('*')
+              .eq('group_id', myGroupId)
+              .order('created_at', { ascending: false })
+          : Promise.resolve({ data: [] as HelpRequest[] }),
+
+        supabase.from('winners').select('*, group:groups(group_number, group_name)').order('position'),
+      ]);
 
     setGame((gameRes.data as Game | null) ?? null);
 
@@ -145,32 +167,22 @@ export const LiveGameProvider: React.FC<{ children: ReactNode }> = ({ children }
     const meRow = (meRes.data as Participant | null) ?? null;
     if (!meRow) setRecoveryCode(null);
     setMe(meRow);
-    setHints((hintsRes.data as Hint[] | null) ?? []);
 
-    // Belt and braces. The access rules already restrict these to this
-    // student's own team, but completedStage decides which clue they are
-    // shown, so the filter is stated here too rather than trusted from a
-    // policy in another file.
-    const myGroupId = (membershipRes.data as string | null) ?? null;
-    setVerifications(
-      ((verificationsRes.data as CheckpointVerification[] | null) ?? []).filter(
-        (v) => !myGroupId || v.group_id === myGroupId
-      )
-    );
-    setHelpRequests(
-      ((helpRes.data as HelpRequest[] | null) ?? []).filter(
-        (r) => !myGroupId || r.group_id === myGroupId
-      )
-    );
+    setVerifications((verificationsRes.data as CheckpointVerification[] | null) ?? []);
+    setHelpRequests((helpRes.data as HelpRequest[] | null) ?? []);
 
     // Group + teammates. Only visible once the organizer publishes teams.
-    const groupId = myGroupId;
-    if (groupId) {
-      const [groupRes, membersRes] = await Promise.all([
-        supabase.from('groups').select('*').eq('id', groupId).maybeSingle(),
-        supabase.from('group_members').select('participant:participants(*)').eq('group_id', groupId),
+    let myGroupRow: Group | null = null;
+    if (myGroupId) {
+      const [gRes, membersRes] = await Promise.all([
+        supabase.from('groups').select('*').eq('id', myGroupId).maybeSingle(),
+        supabase
+          .from('group_members')
+          .select('participant:participants(*)')
+          .eq('group_id', myGroupId),
       ]);
-      setMyGroup((groupRes.data as Group | null) ?? null);
+      myGroupRow = (gRes.data as Group | null) ?? null;
+      setMyGroup(myGroupRow);
       setTeammates(
         ((membersRes.data as Array<{ participant: Participant }> | null) ?? [])
           .map((row) => row.participant)
@@ -181,14 +193,45 @@ export const LiveGameProvider: React.FC<{ children: ReactNode }> = ({ children }
       setTeammates([]);
     }
 
-    // Flatten the join so the UI gets notifications with their read state.
+    /**
+     * Clues. An organizer viewing the student page can read every clue,
+     * including other teams' and unpublished drafts, so narrow to what this
+     * team has actually earned rather than showing whatever came back.
+     */
+    const myGroupNumber = myGroupRow?.group_number ?? null;
+    const completed = ((verificationsRes.data as CheckpointVerification[] | null) ?? []).length;
+    setHints(
+      ((hintsRes.data as Hint[] | null) ?? []).filter(
+        (h) =>
+          h.published_at !== null &&
+          (h.group_number === null || h.group_number === myGroupNumber) &&
+          h.hint_number <= Math.min(completed + 1, 4)
+      )
+    );
+
+    /**
+     * Notifications. Deduplicated by notification id: a message addressed to a
+     * whole team has one delivery row per member, and an organizer can see all
+     * of them. Without this the same message appeared three times, and
+     * dismissing it opened an identical popup underneath.
+     */
     const recipientRows =
       (recipientsRes.data as Array<
-        Pick<NotificationRecipient, 'read_at'> & { notification: Notification | null }
+        Pick<NotificationRecipient, 'read_at' | 'participant_id'> & {
+          notification: Notification | null;
+        }
       > | null) ?? [];
+
+    const seen = new Set<string>();
     setNotifications(
       recipientRows
-        .filter((r) => r.notification)
+        .filter((r) => r.notification && (!myParticipantId || r.participant_id === myParticipantId))
+        .filter((r) => {
+          const id = (r.notification as Notification).id;
+          if (seen.has(id)) return false;
+          seen.add(id);
+          return true;
+        })
         .map((r) => ({ ...(r.notification as Notification), read_at: r.read_at }))
         .sort((a, b) => b.created_at.localeCompare(a.created_at))
     );
