@@ -9,6 +9,8 @@
 
 import React from 'react';
 
+declare const __BUILD_ID__: string;
+
 export const Watermark: React.FC<{ fixed?: boolean }> = ({ fixed = false }) => (
   <div
     aria-hidden="true"
@@ -20,6 +22,9 @@ export const Watermark: React.FC<{ fixed?: boolean }> = ({ fixed = false }) => (
   >
     <p className="text-center text-[10px] tracking-wider text-slate-600/70 select-none py-2">
       powered by EPCE GC 2019
+      {/* Which build this phone is actually running. Invaluable when the only
+          evidence is a photograph of a screen. */}
+      <span className="ml-1.5 opacity-60">· {typeof __BUILD_ID__ === 'string' ? __BUILD_ID__ : 'dev'}</span>
     </p>
   </div>
 );
