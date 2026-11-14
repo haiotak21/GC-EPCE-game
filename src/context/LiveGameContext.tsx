@@ -119,7 +119,14 @@ export const LiveGameProvider: React.FC<{ children: ReactNode }> = ({ children }
     ] = await Promise.all([
       supabase.from('games').select('*').limit(1).maybeSingle(),
       supabase.from('participants').select('*').eq('auth_user_id', authUserId).maybeSingle(),
-      supabase.from('group_members').select('group_id').limit(1).maybeSingle(),
+      // Ask the database directly which team this student is in.
+      //
+      // Do NOT select from group_members and trust the row-level rules to
+      // return only "mine": that rule also exposes the WINNING team's members,
+      // so that everyone can see who won. An unfiltered limit(1) could then
+      // return the winner's row instead, and every student would be shown the
+      // winning team as their own. That is exactly what happened in testing.
+      supabase.rpc('current_group_id'),
       supabase.from('hints').select('*').order('hint_number'),
       supabase.from('checkpoint_verifications').select('*').order('verified_at'),
       supabase
@@ -139,11 +146,25 @@ export const LiveGameProvider: React.FC<{ children: ReactNode }> = ({ children }
     if (!meRow) setRecoveryCode(null);
     setMe(meRow);
     setHints((hintsRes.data as Hint[] | null) ?? []);
-    setVerifications((verificationsRes.data as CheckpointVerification[] | null) ?? []);
-    setHelpRequests((helpRes.data as HelpRequest[] | null) ?? []);
+
+    // Belt and braces. The access rules already restrict these to this
+    // student's own team, but completedStage decides which clue they are
+    // shown, so the filter is stated here too rather than trusted from a
+    // policy in another file.
+    const myGroupId = (membershipRes.data as string | null) ?? null;
+    setVerifications(
+      ((verificationsRes.data as CheckpointVerification[] | null) ?? []).filter(
+        (v) => !myGroupId || v.group_id === myGroupId
+      )
+    );
+    setHelpRequests(
+      ((helpRes.data as HelpRequest[] | null) ?? []).filter(
+        (r) => !myGroupId || r.group_id === myGroupId
+      )
+    );
 
     // Group + teammates. Only visible once the organizer publishes teams.
-    const groupId = (membershipRes.data as { group_id: string } | null)?.group_id ?? null;
+    const groupId = myGroupId;
     if (groupId) {
       const [groupRes, membersRes] = await Promise.all([
         supabase.from('groups').select('*').eq('id', groupId).maybeSingle(),
