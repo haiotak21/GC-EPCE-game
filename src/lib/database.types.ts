@@ -54,6 +54,13 @@ export interface Game {
   registration_open: boolean;
   help_request_limit: number;
   max_group_size: number;
+  /** Prize money, applied automatically when a team finishes. */
+  first_prize_etb: number;
+  second_prize_etb: number;
+  third_prize_etb: number;
+  /** When third place was taken; the end-of-game vote opens 5 minutes later. */
+  podium_filled_at: string | null;
+  post_podium_decision: 'continue' | 'abort' | null;
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
@@ -87,6 +94,8 @@ export interface Group {
   group_name: string | null;
   /** Pass the value you last read back to set_group_name() to detect a concurrent rename. */
   name_version: number;
+  /** Extra help requests granted to this team by an organizer, on top of the game allowance. */
+  bonus_help_requests: number;
   published_at: string | null;
   created_at: string;
 }

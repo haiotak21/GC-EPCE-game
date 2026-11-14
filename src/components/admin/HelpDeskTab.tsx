@@ -24,7 +24,11 @@ const CANNED = [
 ];
 
 export const HelpDeskTab: React.FC = () => {
-  const { helpRequests, groups, participants, admins, answerHelp } = useAdmin();
+  const { helpRequests, groups, participants, admins, answerHelp, grantHelpRequest, game } =
+    useAdmin();
+  const [granting, setGranting] = useState<string | null>(null);
+  const [grantReason, setGrantReason] = useState('');
+  const [notice, setNotice] = useState<{ ok: boolean; message: string } | null>(null);
   const [replies, setReplies] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [filter, setFilter] = useState<'pending' | 'all'>('pending');
@@ -76,6 +80,80 @@ export const HelpDeskTab: React.FC = () => {
             </button>
           ))}
         </div>
+      </div>
+
+      {notice && (
+        <div
+          className={`p-3 rounded-xl text-xs border ${
+            notice.ok
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+              : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+          }`}
+        >
+          {notice.message}
+        </div>
+      )}
+
+      {/* §7: an organizer can grant a team one more request, with a reason. */}
+      <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
+        <div className="text-[11px] text-slate-400">
+          Every team gets {game?.help_request_limit ?? 2} request(s). Grant an extra to a team that
+          needs one:
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {groups.map((g) => (
+            <button
+              key={g.id}
+              type="button"
+              onClick={() => {
+                setGranting(g.id);
+                setGrantReason('');
+              }}
+              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold ${
+                granting === g.id
+                  ? 'bg-amber-400 text-slate-950'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+              }`}
+            >
+              Group {String(g.group_number).padStart(2, '0')}
+              {g.bonus_help_requests > 0 && (
+                <span className="ml-1 text-emerald-400">+{g.bonus_help_requests}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {granting && (
+          <div className="flex gap-2 pt-1">
+            <input
+              type="text"
+              value={grantReason}
+              onChange={(e) => setGrantReason(e.target.value)}
+              placeholder="Reason, e.g. their clue sign was damaged"
+              autoFocus
+              className="flex-1 px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-white text-xs"
+            />
+            <button
+              type="button"
+              disabled={!grantReason.trim()}
+              onClick={async () => {
+                setNotice(await grantHelpRequest(granting, grantReason));
+                setGranting(null);
+                setGrantReason('');
+              }}
+              className="px-3 rounded-lg bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-slate-950 text-[11px] font-bold"
+            >
+              Grant
+            </button>
+            <button
+              type="button"
+              onClick={() => setGranting(null)}
+              className="px-3 rounded-lg bg-slate-800 text-slate-300 text-[11px]"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
 
       {rows.length === 0 ? (

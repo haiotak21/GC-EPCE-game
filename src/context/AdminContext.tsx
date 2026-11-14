@@ -43,6 +43,11 @@ export interface GroupWithMembers extends Group {
   stageTimes: Record<number, string>;
 }
 
+export interface Result {
+  ok: boolean;
+  message: string;
+}
+
 export interface AdminState {
   ready: boolean;
   signedIn: boolean;
@@ -80,6 +85,27 @@ export interface AdminState {
   resetTeams: () => Promise<{ ok: boolean; message: string }>;
   /** Wipes students, teams, progress and messages; reopens registration. */
   resetGame: (includeClues: boolean) => Promise<{ ok: boolean; message: string }>;
+
+  // Corrections an organizer may need mid-event (§9.2, §9.3, §12, §7).
+  removeParticipant: (id: string, reason: string) => Promise<Result>;
+  reinstateParticipant: (id: string) => Promise<Result>;
+  moveParticipant: (id: string, groupId: string | null, reason: string) => Promise<Result>;
+  undoVerification: (groupId: string, stage: number, reason: string) => Promise<Result>;
+  grantHelpRequest: (groupId: string, reason: string) => Promise<Result>;
+  updateSettings: (args: {
+    firstPrize?: number;
+    secondPrize?: number;
+    thirdPrize?: number;
+    helpLimit?: number;
+    maxGroupSize?: number;
+    title?: string;
+  }) => Promise<Result>;
+  setCheckpointCode: (
+    stage: number,
+    groupNumber: number | null,
+    code: string | null
+  ) => Promise<Result>;
+  correctWinner: (position: number, groupId: string | null, reason: string) => Promise<Result>;
   sendNotification: (args: {
     title: string;
     message: string;
@@ -110,10 +136,6 @@ export interface AdminState {
     groupNumber: number | null,
     location?: string
   ) => Promise<{ ok: boolean; code?: string; token?: string; label?: string }>;
-  setWinners: (
-    selections: Array<{ group_id: string; position: 1 | 2 | 3; prize_amount: number }>
-  ) => Promise<{ ok: boolean; message: string }>;
-  revealWinners: () => Promise<{ ok: boolean; message: string }>;
   refresh: () => Promise<void>;
 }
 
@@ -533,36 +555,137 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     [refresh]
   );
 
-  const setWinnersAction = useCallback(
-    async (selections: Array<{ group_id: string; position: 1 | 2 | 3; prize_amount: number }>) => {
+  // --- Corrections -----------------------------------------------------------
+
+  /** Shared shape: call the function, refresh, turn the result code into a sentence. */
+  const call = useCallback(
+    async (
+      fn: string,
+      args: Record<string, unknown>,
+      messages: Record<string, string>,
+      fallback: string
+    ): Promise<Result> => {
       try {
-        const result = await rpc('set_winner_selection', { p_selections: selections });
+        const result = (await rpc(fn as never, args as never)) as unknown as {
+          ok: boolean;
+          code?: string;
+        };
         await refresh();
-        return result.ok
-          ? { ok: true, message: 'Winner selection saved (still hidden from students).' }
-          : { ok: false, message: 'Could not save selection.' };
-      } catch {
-        // The unique constraints reject a duplicate group or position.
-        return { ok: false, message: 'Each team and each position may appear only once.' };
+        const text = messages[result.code ?? ''];
+        if (result.ok) return { ok: true, message: text ?? fallback };
+        return { ok: false, message: text ?? `Could not do that (${result.code ?? 'unknown'}).` };
+      } catch (err) {
+        return { ok: false, message: describeError(err) };
       }
     },
     [refresh]
   );
 
-  const revealWinnersAction = useCallback(async () => {
-    const result = await rpc('reveal_winners');
-    await refresh();
-    if (result.ok) return { ok: true, message: 'Winners revealed to everyone.' };
-    return {
-      ok: false,
-      message:
-        result.code === 'NO_SELECTION'
-          ? 'Choose the three winning teams first.'
-          : result.code === 'ALREADY_REVEALED'
-            ? 'Winners have already been revealed.'
-            : 'Could not reveal winners.',
-    };
-  }, [refresh]);
+  const removeParticipant = useCallback(
+    (id: string, reason: string) =>
+      call(
+        'admin_remove_participant',
+        { p_participant_id: id, p_reason: reason },
+        { REASON_REQUIRED: 'Please give a reason.', NOT_FOUND: 'That student no longer exists.' },
+        'Student removed.'
+      ),
+    [call]
+  );
+
+  const reinstateParticipant = useCallback(
+    (id: string) =>
+      call(
+        'admin_reinstate_participant',
+        { p_participant_id: id },
+        {},
+        'Student reinstated — they now need a team.'
+      ),
+    [call]
+  );
+
+  const moveParticipant = useCallback(
+    (id: string, groupId: string | null, reason: string) =>
+      call(
+        'admin_move_participant',
+        { p_participant_id: id, p_target_group_id: groupId, p_reason: reason },
+        {
+          GROUP_FULL: 'That team is already full.',
+          UNASSIGNED: 'Student taken out of their team.',
+          GROUP_NOT_FOUND: 'That team no longer exists.',
+        },
+        'Student moved.'
+      ),
+    [call]
+  );
+
+  const undoVerification = useCallback(
+    (groupId: string, stage: number, reason: string) =>
+      call(
+        'admin_undo_verification',
+        { p_group_id: groupId, p_stage: stage, p_reason: reason },
+        { REASON_REQUIRED: 'Please give a reason.' },
+        'Checkpoint undone.'
+      ),
+    [call]
+  );
+
+  const grantHelpRequest = useCallback(
+    (groupId: string, reason: string) =>
+      call(
+        'admin_grant_help_request',
+        { p_group_id: groupId, p_reason: reason },
+        { REASON_REQUIRED: 'Please give a reason.' },
+        'Extra help request granted.'
+      ),
+    [call]
+  );
+
+  const updateSettings = useCallback(
+    (args: {
+      firstPrize?: number;
+      secondPrize?: number;
+      thirdPrize?: number;
+      helpLimit?: number;
+      maxGroupSize?: number;
+      title?: string;
+    }) =>
+      call(
+        'admin_update_settings',
+        {
+          p_first_prize: args.firstPrize ?? null,
+          p_second_prize: args.secondPrize ?? null,
+          p_third_prize: args.thirdPrize ?? null,
+          p_help_limit: args.helpLimit ?? null,
+          p_max_group_size: args.maxGroupSize ?? null,
+          p_title: args.title ?? null,
+        },
+        { TEAM_TOO_BIG: 'A team already has more members than that limit allows.' },
+        'Settings saved.'
+      ),
+    [call]
+  );
+
+  const setCheckpointCode = useCallback(
+    (stage: number, groupNumber: number | null, code: string | null) =>
+      call(
+        'admin_set_checkpoint_code',
+        { p_stage: stage, p_group_number: groupNumber, p_code: code },
+        { CHECKPOINT_NOT_FOUND: 'Generate a code for that clue first.' },
+        'Saved.'
+      ),
+    [call]
+  );
+
+  const correctWinner = useCallback(
+    (position: number, groupId: string | null, reason: string) =>
+      call(
+        'admin_correct_winner',
+        { p_position: position, p_group_id: groupId, p_reason: reason },
+        { REASON_REQUIRED: 'Please give a reason.' },
+        'Placing corrected.'
+      ),
+    [call]
+  );
 
   const assignedIds = new Set(groups.flatMap((g) => g.members.map((m) => m.id)));
   const unassigned = participants.filter((p) => p.status === 'active' && !assignedIds.has(p.id));
@@ -595,13 +718,19 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         assignLateParticipants,
         resetTeams,
         resetGame,
+        removeParticipant,
+        reinstateParticipant,
+        moveParticipant,
+        undoVerification,
+        grantHelpRequest,
+        updateSettings,
+        setCheckpointCode,
+        correctWinner,
         sendNotification,
         answerHelp,
         saveHint,
         setHintPublished,
         issueCode,
-        setWinners: setWinnersAction,
-        revealWinners: revealWinnersAction,
         refresh,
       }}
     >

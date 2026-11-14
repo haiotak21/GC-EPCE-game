@@ -13,6 +13,7 @@ import { HelpDeskTab } from '../components/admin/HelpDeskTab';
 import { WinnersTab } from '../components/admin/WinnersTab';
 import { NotifyTab } from '../components/admin/NotifyTab';
 import { ActivityTab } from '../components/admin/ActivityTab';
+import { SettingsTab } from '../components/admin/SettingsTab';
 import { DangerZone } from '../components/admin/DangerZone';
 import type { GameStatus } from '../lib/database.types';
 import {
@@ -32,7 +33,7 @@ import {
 
 type Tab =
   | 'overview' | 'participants' | 'teams' | 'clues'
-  | 'progress' | 'help' | 'notify' | 'winners' | 'activity';
+  | 'progress' | 'help' | 'notify' | 'winners' | 'settings' | 'activity';
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'overview', label: 'Overview' },
@@ -43,6 +44,7 @@ const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'help', label: 'Help Desk' },
   { id: 'notify', label: 'Messages' },
   { id: 'winners', label: 'Winners' },
+  { id: 'settings', label: 'Settings' },
   { id: 'activity', label: 'Activity' },
 ];
 
@@ -242,8 +244,15 @@ const OverviewTab: React.FC = () => {
 // -----------------------------------------------------------------------------
 
 const ParticipantsTab: React.FC = () => {
-  const { participants, groups } = useAdmin();
+  const { participants, groups, removeParticipant, reinstateParticipant, moveParticipant } =
+    useAdmin();
   const [query, setQuery] = useState('');
+  const [acting, setActing] = useState<string | null>(null);
+  const [reason, setReason] = useState('');
+  const [mode, setMode] = useState<'remove' | 'move' | null>(null);
+  const [target, setTarget] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<{ ok: boolean; message: string } | null>(null);
 
   const groupOf = new Map<string, number>();
   for (const g of groups) for (const m of g.members) groupOf.set(m.id, g.group_number);
@@ -252,8 +261,38 @@ const ParticipantsTab: React.FC = () => {
     p.full_name.toLowerCase().includes(query.trim().toLowerCase())
   );
 
+  const close = () => {
+    setActing(null);
+    setMode(null);
+    setReason('');
+    setTarget('');
+  };
+
+  const run = async (fn: () => Promise<{ ok: boolean; message: string }>) => {
+    setBusy(true);
+    try {
+      const result = await fn();
+      setNotice(result);
+      if (result.ok) close();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
+      {notice && (
+        <div
+          className={`p-3.5 rounded-xl text-xs border ${
+            notice.ok
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+              : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+          }`}
+        >
+          {notice.message}
+        </div>
+      )}
+
       <input
         type="text"
         value={query}
@@ -262,48 +301,161 @@ const ParticipantsTab: React.FC = () => {
         className="w-full sm:max-w-xs px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white text-sm focus:outline-none focus:border-amber-400"
       />
 
-      <div className="rounded-2xl border border-slate-800 overflow-hidden overflow-x-auto">
-        <table className="w-full text-sm min-w-[480px]">
-          <thead className="bg-slate-900/80 text-slate-400 text-[10px] uppercase tracking-wider">
-            <tr>
-              <th className="text-left px-4 py-3 font-bold">Name</th>
-              <th className="text-left px-4 py-3 font-bold">Registered</th>
-              <th className="text-left px-4 py-3 font-bold">Team</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800">
-            {rows.map((p) => (
-              <tr key={p.id} className="bg-slate-950/40">
-                <td className="px-4 py-3 text-white font-medium">{p.full_name}</td>
-                <td className="px-4 py-3 text-slate-400 font-mono text-xs">
-                  {localTime(p.registered_at)}
-                </td>
-                <td className="px-4 py-3">
-                  {groupOf.has(p.id) ? (
-                    <span className="text-amber-300 font-semibold">
-                      Group {String(groupOf.get(p.id)).padStart(2, '0')}
-                    </span>
+      <div className="space-y-2">
+        {rows.map((p) => {
+          const removed = p.status === 'removed';
+          const open = acting === p.id;
+          return (
+            <div
+              key={p.id}
+              className={`p-3 rounded-xl border ${
+                removed ? 'bg-slate-950/30 border-slate-800/60' : 'bg-slate-900/70 border-slate-800'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="min-w-0">
+                  <div className={`text-sm font-medium ${removed ? 'text-slate-500 line-through' : 'text-white'}`}>
+                    {p.full_name}
+                  </div>
+                  <div className="text-[10px] text-slate-500">
+                    {localTime(p.registered_at)} ·{' '}
+                    {removed ? (
+                      <span className="text-rose-400">removed</span>
+                    ) : groupOf.has(p.id) ? (
+                      <span className="text-amber-300">
+                        Group {String(groupOf.get(p.id)).padStart(2, '0')}
+                      </span>
+                    ) : (
+                      'unassigned'
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-1.5 shrink-0">
+                  {removed ? (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void run(() => reinstateParticipant(p.id))}
+                      className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 text-[11px] font-bold"
+                    >
+                      Reinstate
+                    </button>
                   ) : (
-                    <span className="text-slate-500">Unassigned</span>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActing(p.id);
+                          setMode('move');
+                          setTarget('');
+                          setReason('');
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold"
+                      >
+                        Move
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActing(p.id);
+                          setMode('remove');
+                          setReason('');
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-rose-300 text-[11px] font-bold"
+                      >
+                        Remove
+                      </button>
+                    </>
                   )}
-                </td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={3} className="px-4 py-8 text-center text-slate-500 text-xs">
-                  No students yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                </div>
+              </div>
+
+              {open && mode === 'move' && (
+                <div className="mt-3 pt-3 border-t border-slate-800 space-y-2">
+                  <select
+                    value={target}
+                    onChange={(e) => setTarget(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-white text-xs"
+                  >
+                    <option value="">— take them out of their team —</option>
+                    {groups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        Group {String(g.group_number).padStart(2, '0')}
+                        {g.group_name ? ` · ${g.group_name}` : ''} ({g.members.length} members)
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    placeholder="Reason (recorded in the activity log)"
+                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-white text-xs"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void run(() => moveParticipant(p.id, target || null, reason))}
+                      className="px-3 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-slate-950 text-[11px] font-bold"
+                    >
+                      {busy ? 'Moving…' : 'Move'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={close}
+                      className="px-3 py-2 rounded-lg bg-slate-800 text-slate-300 text-[11px]"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {open && mode === 'remove' && (
+                <div className="mt-3 pt-3 border-t border-slate-800 space-y-2">
+                  <p className="text-[11px] text-rose-300">
+                    Removes them from the game and their team. Reversible — they can be reinstated.
+                  </p>
+                  <input
+                    type="text"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    placeholder="Reason, e.g. registered twice"
+                    autoFocus
+                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-white text-xs"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={busy || !reason.trim()}
+                      onClick={() => void run(() => removeParticipant(p.id, reason))}
+                      className="px-3 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 disabled:opacity-40 text-white text-[11px] font-bold"
+                    >
+                      {busy ? 'Removing…' : 'Remove'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={close}
+                      className="px-3 py-2 rounded-lg bg-slate-800 text-slate-300 text-[11px]"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {rows.length === 0 && (
+          <p className="text-center text-slate-500 text-xs py-8">No students yet.</p>
+        )}
       </div>
     </div>
   );
 };
-
-// -----------------------------------------------------------------------------
 
 const TeamsTab: React.FC = () => {
   const {
@@ -591,7 +743,11 @@ const GroupCard: React.FC<{ group: GroupWithMembers }> = ({ group }) => (
 // -----------------------------------------------------------------------------
 
 const ProgressTab: React.FC = () => {
-  const { groups } = useAdmin();
+  const { groups, undoVerification } = useAdmin();
+  const [undoing, setUndoing] = useState<{ groupId: string; stage: number } | null>(null);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<{ ok: boolean; message: string } | null>(null);
 
   if (groups.length === 0) {
     return <p className="text-sm text-slate-500">No teams yet.</p>;
@@ -600,8 +756,68 @@ const ProgressTab: React.FC = () => {
   return (
     <div className="space-y-3">
       <p className="text-[11px] text-slate-500">
-        Visible to organizers only. Times shown in Addis Ababa time.
+        Visible to organizers only. Times shown in Addis Ababa time. Tap a green tick to undo a
+        checkpoint verified by mistake.
       </p>
+
+      {notice && (
+        <div
+          className={`p-3 rounded-xl text-xs border ${
+            notice.ok
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+              : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+          }`}
+        >
+          {notice.message}
+        </div>
+      )}
+
+      {undoing && (
+        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 space-y-2">
+          <p className="text-xs text-rose-200 leading-relaxed">
+            Undo checkpoint {undoing.stage} for this team? Later checkpoints are undone too, because
+            progress has to stay an unbroken run — otherwise they could never scan again. If this
+            cost them a placing, that is removed as well.
+          </p>
+          <input
+            type="text"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Reason (recorded in the activity log)"
+            autoFocus
+            className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-white text-xs"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={busy || !reason.trim()}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  setNotice(await undoVerification(undoing.groupId, undoing.stage, reason));
+                  setUndoing(null);
+                  setReason('');
+                } finally {
+                  setBusy(false);
+                }
+              }}
+              className="px-3 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 disabled:opacity-40 text-white text-[11px] font-bold"
+            >
+              {busy ? 'Undoing…' : 'Undo it'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setUndoing(null);
+                setReason('');
+              }}
+              className="px-3 py-2 rounded-lg bg-slate-800 text-slate-300 text-[11px]"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-2xl border border-slate-800 overflow-hidden overflow-x-auto">
         <table className="w-full text-sm min-w-[520px]">
@@ -632,12 +848,17 @@ const ProgressTab: React.FC = () => {
                   return (
                     <td key={stage} className="px-3 py-3 text-center">
                       {done ? (
-                        <div className="flex flex-col items-center">
+                        <button
+                          type="button"
+                          onClick={() => setUndoing({ groupId: g.id, stage })}
+                          title="Undo this verification"
+                          className="flex flex-col items-center mx-auto hover:opacity-70 transition-opacity"
+                        >
                           <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                           <span className="text-[9px] text-slate-500 font-mono mt-0.5">
                             {localTime(done)}
                           </span>
-                        </div>
+                        </button>
                       ) : isNext ? (
                         <Clock className="w-4 h-4 text-amber-400 mx-auto" />
                       ) : (
@@ -754,6 +975,7 @@ export const AdminDashboard: React.FC<{ onSignedOut: () => void }> = ({ onSigned
         {tab === 'help' && <HelpDeskTab />}
         {tab === 'notify' && <NotifyTab />}
         {tab === 'winners' && <WinnersTab />}
+        {tab === 'settings' && <SettingsTab />}
         {tab === 'activity' && <ActivityTab />}
       </main>
     </div>
