@@ -9,7 +9,7 @@
  * across tabs and devices, which a local "seen" list would not.
  */
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   X,
   Bell,
@@ -52,17 +52,45 @@ export const NotificationPopup: React.FC = () => {
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
 
   const current = pending[0];
-  if (!current) return null;
 
-  const dismiss = async () => {
-    if (busy) return;
+  // Announcements about other teams close themselves, so a popup can never
+  // block someone who is mid-scan. The team's own result has no timer.
+  const autoSeconds = Number(
+    (current?.payload as { auto_dismiss_seconds?: number } | null)?.auto_dismiss_seconds ?? 0
+  );
+  const [remaining, setRemaining] = useState(autoSeconds);
+
+  const dismiss = useCallback(async () => {
+    if (!current || busy) return;
     setBusy(true);
     try {
       await markRead(current.id);
     } finally {
       setBusy(false);
     }
-  };
+  }, [current, busy, markRead]);
+
+  // Restart the countdown whenever a different message comes to the front.
+  useEffect(() => {
+    setRemaining(autoSeconds);
+  }, [current?.id, autoSeconds]);
+
+  useEffect(() => {
+    if (!current || autoSeconds <= 0) return;
+    const id = setInterval(() => {
+      setRemaining((r) => {
+        if (r <= 1) {
+          clearInterval(id);
+          void dismiss();
+          return 0;
+        }
+        return r - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [current?.id, autoSeconds, dismiss, current]);
+
+  if (!current) return null;
 
   return (
     <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[60] flex items-center justify-center p-4">
@@ -101,7 +129,7 @@ export const NotificationPopup: React.FC = () => {
               disabled={busy}
               className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 disabled:opacity-50 text-slate-950 font-black text-sm"
             >
-              {busy ? '…' : 'Got it'}
+              {busy ? '…' : autoSeconds > 0 ? `Cancel${remaining > 0 ? ` (${remaining})` : ''}` : 'Got it'}
             </button>
 
             {/* Without this, a backlog means tapping "Got it" once per message. */}

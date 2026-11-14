@@ -67,6 +67,68 @@ const Stat: React.FC<{ label: string; value: React.ReactNode; accent?: string }>
 
 // -----------------------------------------------------------------------------
 
+
+/**
+ * Live feed of every checkpoint reached (§ organizers: "every reach point has
+ * to display for all 3 of them"). The Progress grid shows the same facts, but
+ * only if you happen to be looking at it — this is the running commentary.
+ */
+const LiveFeed: React.FC = () => {
+  const { groups, checkpoints } = useAdmin();
+
+  const stageOf = new Map(checkpoints.map((c) => [c.id, c.stage_number]));
+  void stageOf;
+
+  const events = groups
+    .flatMap((g) =>
+      Object.entries(g.stageTimes).map(([stage, at]) => ({
+        key: `${g.id}-${stage}`,
+        team: g.group_name?.trim() || `Group ${String(g.group_number).padStart(2, '0')}`,
+        stage: Number(stage),
+        at,
+      }))
+    )
+    .sort((a, b) => b.at.localeCompare(a.at))
+    .slice(0, 12);
+
+  if (events.length === 0) {
+    return (
+      <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+        <h3 className="font-bold text-white text-sm mb-1">Live activity</h3>
+        <p className="text-xs text-slate-500">No checkpoints reached yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-2">
+      <h3 className="font-bold text-white text-sm flex items-center gap-2">
+        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+        Live activity
+      </h3>
+      <p className="text-[11px] text-slate-500">
+        Every checkpoint reached, newest first. All three organizers see this.
+      </p>
+      <ul className="space-y-1 pt-1">
+        {events.map((e) => (
+          <li
+            key={e.key}
+            className="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-950/50 text-xs"
+          >
+            <span className="text-slate-200 truncate">
+              <span className="font-semibold text-white">{e.team}</span>
+              {e.stage === 4 ? ' finished the hunt' : ` reached checkpoint ${e.stage}`}
+            </span>
+            <span className="text-[10px] text-slate-600 font-mono shrink-0">
+              {localTime(e.at)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
 const OverviewTab: React.FC = () => {
   const { game, participants, groups, unassigned, helpRequests, setGameStatus } = useAdmin();
   const [busy, setBusy] = useState<string | null>(null);
@@ -169,6 +231,8 @@ const OverviewTab: React.FC = () => {
           pressing Start game again. Finishing is also reversible — press Start game to reopen.
         </p>
       </div>
+
+      <LiveFeed />
 
       <DangerZone />
     </div>

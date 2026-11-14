@@ -16,6 +16,7 @@ import { CheckpointScanner } from '../components/CheckpointScanner';
 import { HelpPanel } from '../components/HelpPanel';
 import { NotificationPopup, NotificationsPanel } from '../components/Notifications';
 import { WinnersPodium } from '../components/WinnersPodium';
+import { PostPodiumVote } from '../components/PostPodiumVote';
 import {
   Compass,
   Users,
@@ -492,8 +493,11 @@ export const StudentHome: React.FC = () => {
         </div>
       ) : (
         <>
-          {/* Results, once the organizers reveal them (§14) */}
+          {/* Results, announced automatically as teams finish */}
           <WinnersPodium />
+
+          {/* Carry on or stop? Opens 5 minutes after third place. */}
+          <PostPodiumVote refreshKey={completedStage} />
 
           {/* The clue, and the way to verify it (§5, §6) */}
           <ClueCard
