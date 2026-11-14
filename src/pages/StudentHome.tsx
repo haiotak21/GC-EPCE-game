@@ -17,6 +17,7 @@ import { HelpPanel } from '../components/HelpPanel';
 import { NotificationPopup, NotificationsPanel } from '../components/Notifications';
 import { WinnersPodium } from '../components/WinnersPodium';
 import { PostPodiumVote } from '../components/PostPodiumVote';
+import { Watermark } from '../components/Watermark';
 import {
   Compass,
   Users,
@@ -100,7 +101,7 @@ const RegistrationPopup: React.FC = () => {
           <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
             <Compass className="w-8 h-8 text-amber-400" />
           </div>
-          <h1 className="text-2xl font-black text-white">🎉 Welcome to GC Mystery Hunt!</h1>
+          <h1 className="text-2xl font-black text-white">🎉 Welcome to EPCE GC 2019!</h1>
           <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
             Enter your name to join the campus challenge.
           </p>
@@ -205,6 +206,8 @@ const RegistrationPopup: React.FC = () => {
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
             <span>No email or phone needed</span>
           </div>
+
+          <Watermark />
         </div>
       </div>
     </div>
@@ -448,7 +451,7 @@ export const StudentHome: React.FC = () => {
         <div className="min-w-0">
           <h1 className="text-xl font-black text-white truncate">Welcome, {me.full_name}! 👋</h1>
           <div className="text-[11px] text-slate-500 font-mono mt-0.5 truncate">
-            {game?.title ?? 'GC Campus Mystery Hunt'}
+            {game?.title ?? 'EPCE GC 2019'}
           </div>
         </div>
 
@@ -562,6 +565,8 @@ export const StudentHome: React.FC = () => {
         <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
         <span>Live — updates appear automatically</span>
       </div>
+
+      <Watermark />
     </div>
   );
 };

@@ -1592,7 +1592,7 @@ revoke execute on function link_admin_account(text, uuid, text, admin_role) from
 -- -----------------------------------------------------------------------------
 
 create or replace function create_game(
-  p_title text default 'GC Campus Mystery Hunt 2026',
+  p_title text default 'EPCE GC 2019',
   p_help_request_limit integer default 2
 )
 returns jsonb

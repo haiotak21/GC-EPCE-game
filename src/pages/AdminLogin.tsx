@@ -9,6 +9,7 @@
 import React, { useState } from 'react';
 import { useAdmin } from '../context/AdminContext';
 import { Shield, ArrowRight, AlertCircle } from 'lucide-react';
+import { Watermark } from '../components/Watermark';
 
 export const AdminLogin: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
   const { signIn, authError } = useAdmin();
@@ -90,6 +91,8 @@ export const AdminLogin: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) =
             {!busy && <ArrowRight className="w-4 h-4" />}
           </button>
         </form>
+
+        <Watermark />
       </div>
     </div>
   );

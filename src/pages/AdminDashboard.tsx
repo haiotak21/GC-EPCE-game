@@ -14,6 +14,7 @@ import { WinnersTab } from '../components/admin/WinnersTab';
 import { NotifyTab } from '../components/admin/NotifyTab';
 import { ActivityTab } from '../components/admin/ActivityTab';
 import { SettingsTab } from '../components/admin/SettingsTab';
+import { Watermark } from '../components/Watermark';
 import { DangerZone } from '../components/admin/DangerZone';
 import type { GameStatus } from '../lib/database.types';
 import {
@@ -912,7 +913,7 @@ export const AdminDashboard: React.FC<{ onSignedOut: () => void }> = ({ onSigned
             </div>
             <div className="min-w-0">
               <div className="text-sm font-black text-white truncate">
-                {game?.title ?? 'Mystery Hunt'}
+                {game?.title ?? 'EPCE GC 2019'}
               </div>
               <div className="text-[10px] text-slate-500 truncate">
                 {me?.display_name} · {me?.role.replace('_', ' ')}
@@ -977,6 +978,8 @@ export const AdminDashboard: React.FC<{ onSignedOut: () => void }> = ({ onSigned
         {tab === 'winners' && <WinnersTab />}
         {tab === 'settings' && <SettingsTab />}
         {tab === 'activity' && <ActivityTab />}
+
+        <Watermark />
       </main>
     </div>
   );
